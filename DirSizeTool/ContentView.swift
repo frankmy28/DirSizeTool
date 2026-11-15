@@ -16,6 +16,8 @@ struct ContentView: View {
     @State private var selection: RecentFolder.ID?
     @State private var isPickingFolder = false
 
+    @Environment(\.openWindow) private var openWindow
+
     var body: some View {
         HStack(spacing: 20) {
             appInfo
@@ -26,7 +28,10 @@ struct ContentView: View {
 
                 HStack {
                     Button("Scan") {
-                        // Scanning is not implemented yet.
+                        // RecentFolder.ID is the folder's URL.
+                        if let url = selection {
+                            openWindow(id: ScanView.windowID, value: url)
+                        }
                     }
                     .disabled(selection == nil)
 
@@ -107,6 +112,9 @@ struct ContentView: View {
 
     /// Moves the picked folder to the top of the list and selects it.
     private func addRecentFolder(_ url: URL) {
+        // Keep sandbox access open for the app's lifetime so the scan window can read the folder.
+        _ = url.startAccessingSecurityScopedResource()
+
         let folder = RecentFolder(url: url)
         recentFolders.removeAll { $0 == folder }
         recentFolders.insert(folder, at: 0)
