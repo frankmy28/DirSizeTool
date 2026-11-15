@@ -53,13 +53,24 @@ final class DirectoryNode: Identifiable {
         self.parent = nil
     }
 
-    /// Orders subdirectories by size (largest first), then by name for a stable order.
-    func sortSubdirectories() {
+    /// Orders subdirectories by `sortOrder`, falling back to the name for a stable order.
+    func sortSubdirectories(using sortOrder: [KeyPathComparator<DirectoryNode>]) {
         subdirectories.sort { lhs, rhs in
-            if lhs.size != rhs.size {
-                return lhs.size > rhs.size
+            for comparator in sortOrder {
+                let result = comparator.compare(lhs, rhs)
+                if result != .orderedSame {
+                    return result == .orderedAscending
+                }
             }
             return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    /// Re-sorts the subdirectories of this directory and all descendants.
+    func sortRecursively(using sortOrder: [KeyPathComparator<DirectoryNode>]) {
+        sortSubdirectories(using: sortOrder)
+        for subdirectory in subdirectories {
+            subdirectory.sortRecursively(using: sortOrder)
         }
     }
 }

@@ -97,6 +97,13 @@ final class ScanSession {
     let root: DirectoryNode
     private(set) var status: Status = .scanning
 
+    /// Current table sort order; changing it re-sorts the whole tree.
+    var sortOrder: [KeyPathComparator<DirectoryNode>] = [KeyPathComparator(\.size, order: .reverse)] {
+        didSet {
+            root.sortRecursively(using: sortOrder)
+        }
+    }
+
     @ObservationIgnored private var nodesByID: [Int: DirectoryNode]
     /// Lookup from table row IDs back to nodes, e.g. for context menu actions.
     @ObservationIgnored private var nodesByRowID: [DirectoryNode.ID: DirectoryNode]
@@ -120,7 +127,7 @@ final class ScanSession {
         var touchedParents: [ObjectIdentifier: DirectoryNode] = [:]
         node.removeFromParent(touching: &touchedParents)
         for parent in touchedParents.values {
-            parent.sortSubdirectories()
+            parent.sortSubdirectories(using: sortOrder)
         }
     }
 
@@ -162,7 +169,7 @@ final class ScanSession {
 
         // Re-sort once per batch instead of once per event.
         for parent in touchedParents.values {
-            parent.sortSubdirectories()
+            parent.sortSubdirectories(using: sortOrder)
         }
     }
 }

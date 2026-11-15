@@ -29,6 +29,11 @@ struct ScanView: View {
         )
     }
 
+    /// Whether the table is currently sorted by the column showing `keyPath`.
+    private func isSorted(by keyPath: PartialKeyPath<DirectoryNode>) -> Bool {
+        session.sortOrder.first?.keyPath == keyPath
+    }
+
     private func delete(_ node: DirectoryNode) {
         do {
             try session.moveToTrash(node)
@@ -42,11 +47,15 @@ struct ScanView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Table(of: DirectoryNode.self, selection: $selection) {
-                TableColumn("Directory") { node in
+            Table(of: DirectoryNode.self, selection: $selection, sortOrder: $session.sortOrder) {
+                TableColumn(
+                    Text("Directory").bold(isSorted(by: \.name)),
+                    value: \.name,
+                    comparator: .localizedStandard
+                ) { node in
                     NameCell(node: node)
                 }
-                TableColumn("Size") { node in
+                TableColumn(Text("Size").bold(isSorted(by: \.size)), value: \.size) { node in
                     SizeCell(node: node)
                 }
                 .width(min: 80, ideal: 120, max: 200)
