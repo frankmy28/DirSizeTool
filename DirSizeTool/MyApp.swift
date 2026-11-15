@@ -2,7 +2,7 @@ import SwiftUI
 
 @main struct MyApp: App {
     var body: some Scene {
-        WindowGroup("Willkommen") {
+        WindowGroup("Directory Size Tool") {
             ContentView()
         }
         .windowResizability(.contentSize)

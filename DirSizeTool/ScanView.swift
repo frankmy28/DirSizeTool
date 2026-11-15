@@ -186,8 +186,15 @@ private struct SizeCell: View {
     let node: DirectoryNode
 
     var body: some View {
-        Text(node.size, format: .byteCount(style: .file))
-            .monospacedDigit()
+        Group {
+            if node.isScanned {
+                Text(node.size, format: .byteCount(style: .file))
+            } else {
+                Text("?")
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .monospacedDigit()
             .frame(maxWidth: .infinity, alignment: .trailing)
     }
 }

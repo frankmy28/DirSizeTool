@@ -35,7 +35,7 @@ struct ContentView: View {
                     }
                     .disabled(selection == nil)
 
-                    Button("Verlauf löschen") {
+                    Button("Clear History") {
                         recentFolders.removeAll()
                         selection = nil
                     }
@@ -55,8 +55,11 @@ struct ContentView: View {
         .fileImporter(isPresented: $isPickingFolder, allowedContentTypes: [.folder]) { result in
             if case .success(let url) = result {
                 addRecentFolder(url)
+                // The picker's confirmation button is labeled "Scan", so start scanning right away.
+                openWindow(id: ScanView.windowID, value: url)
             }
         }
+        .fileDialogConfirmationLabel("Scan")
     }
 
     /// App icon, name and short description on the left side.
@@ -68,10 +71,7 @@ struct ContentView: View {
                 .frame(width: 140, height: 140)
                 .foregroundStyle(.blue.gradient)
 
-            Text("DirSizeTool")
-                .font(.headline)
-
-            Text("Hilft dabei, verloren gegangenen Speicherplatz aufzufinden")
+            Text("Helps you to free up space on your drives")
                 .font(.callout)
                 .multilineTextAlignment(.center)
         }
@@ -98,7 +98,7 @@ struct ContentView: View {
                 isPickingFolder = true
             } label: {
                 VStack(alignment: .leading) {
-                    Text("Anderen Ordner auswählen")
+                    Text("Scan folder...")
                         .bold()
                     Text("…")
                         .font(.caption)

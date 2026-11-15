@@ -10,6 +10,9 @@ final class DirectoryNode: Identifiable {
     /// Allocated size on disk of all files in this directory and its descendants.
     private(set) var size: Int64 = 0
 
+    /// Whether this directory's own contents have been read. Until then its size is unknown.
+    var isScanned = false
+
     /// Subdirectories, ordered largest first.
     private(set) var subdirectories: [DirectoryNode] = []
 

@@ -6,8 +6,8 @@ import Observation
 nonisolated enum ScanEvent: Sendable {
     /// A new subdirectory `id` was found inside `parentID`.
     case directory(id: Int, parentID: Int, url: URL)
-    /// Files directly inside directory `id` occupy `bytes` on disk.
-    case bytes(id: Int, bytes: Int64)
+    /// Directory `id` has been read; the files directly inside it occupy `fileBytes` on disk.
+    case scanned(id: Int, fileBytes: Int64)
 }
 
 /// Walks a directory tree in the background and reports what it finds in batches.
@@ -69,9 +69,8 @@ nonisolated struct DirectoryScanner {
                 }
             }
 
-            if fileBytes > 0 {
-                pending.append(.bytes(id: directoryID, bytes: fileBytes))
-            }
+            // Always sent, even for 0 bytes, so the UI knows this directory has been read.
+            pending.append(.scanned(id: directoryID, fileBytes: fileBytes))
 
             // Batch events so the main actor isn't flooded with tiny updates.
             if !pending.isEmpty, clock.now - lastFlush >= flushInterval {
@@ -162,8 +161,12 @@ final class ScanSession {
                 nodesByID[id] = node
                 nodesByRowID[node.id] = node
                 touchedParents[parent.id] = parent
-            case let .bytes(id, bytes):
-                nodesByID[id]?.add(bytes: bytes, touching: &touchedParents)
+            case let .scanned(id, fileBytes):
+                guard let node = nodesByID[id] else { continue }
+                node.isScanned = true
+                if fileBytes > 0 {
+                    node.add(bytes: fileBytes, touching: &touchedParents)
+                }
             }
         }
 
