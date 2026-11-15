@@ -2,8 +2,9 @@ import SwiftUI
 
 @main struct MyApp: App {
     var body: some Scene {
-        WindowGroup {
+        WindowGroup("Willkommen") {
             ContentView()
         }
+        .windowResizability(.contentSize)
     }
 }

@@ -1,10 +1,116 @@
 import SwiftUI
+import UniformTypeIdentifiers
 import Playgrounds
 
+/// A folder the user has picked before and can scan again.
+struct RecentFolder: Identifiable, Hashable {
+    let url: URL
+
+    var id: URL { url }
+    var name: String { url.lastPathComponent }
+    var path: String { url.path(percentEncoded: false) }
+}
+
 struct ContentView: View {
+    @State private var recentFolders: [RecentFolder] = []
+    @State private var selection: RecentFolder.ID?
+    @State private var isPickingFolder = false
+
     var body: some View {
-        Text("Hello, world!")
-            .padding()
+        HStack(spacing: 20) {
+            appInfo
+                .frame(maxWidth: .infinity)
+
+            VStack(alignment: .leading, spacing: 12) {
+                folderList
+
+                HStack {
+                    Button("Scan") {
+                        // Scanning is not implemented yet.
+                    }
+                    .disabled(selection == nil)
+
+                    Button("Verlauf löschen") {
+                        recentFolders.removeAll()
+                        selection = nil
+                    }
+                    .disabled(recentFolders.isEmpty)
+
+                    Spacer()
+
+                    HelpLink {
+                        // Help content is not available yet.
+                    }
+                }
+            }
+            .frame(width: 240)
+        }
+        .padding(20)
+        .frame(width: 500, height: 340)
+        .fileImporter(isPresented: $isPickingFolder, allowedContentTypes: [.folder]) { result in
+            if case .success(let url) = result {
+                addRecentFolder(url)
+            }
+        }
+    }
+
+    /// App icon, name and short description on the left side.
+    private var appInfo: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "square.stack.3d.up.fill")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 140, height: 140)
+                .foregroundStyle(.blue.gradient)
+
+            Text("DirSizeTool")
+                .font(.headline)
+
+            Text("Hilft dabei, verloren gegangenen Speicherplatz aufzufinden")
+                .font(.callout)
+                .multilineTextAlignment(.center)
+        }
+    }
+
+    /// Recently used folders, followed by an entry to pick another folder.
+    private var folderList: some View {
+        List(selection: $selection) {
+            ForEach(recentFolders) { folder in
+                Label {
+                    VStack(alignment: .leading) {
+                        Text(folder.name)
+                            .bold()
+                        Text(folder.path)
+                            .font(.caption)
+                    }
+                } icon: {
+                    Image(systemName: "externaldrive.fill")
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            Button {
+                isPickingFolder = true
+            } label: {
+                VStack(alignment: .leading) {
+                    Text("Anderen Ordner auswählen")
+                        .bold()
+                    Text("…")
+                        .font(.caption)
+                }
+            }
+            .buttonStyle(.plain)
+        }
+        .listStyle(.plain)
+        .border(.separator)
+    }
+
+    /// Moves the picked folder to the top of the list and selects it.
+    private func addRecentFolder(_ url: URL) {
+        let folder = RecentFolder(url: url)
+        recentFolders.removeAll { $0 == folder }
+        recentFolders.insert(folder, at: 0)
+        selection = folder.id
     }
 }
 
