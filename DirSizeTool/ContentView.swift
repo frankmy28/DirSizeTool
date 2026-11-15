@@ -6,6 +6,7 @@ struct ContentView: View {
     @State private var store = RecentFolderStore()
     @State private var selection: RecentFolder.ID?
     @State private var isPickingFolder = false
+    @AppStorage(ScanView.skipsRemoteDirectoriesKey) private var skipsRemoteDirectories = true
 
     @Environment(\.openWindow) private var openWindow
 
@@ -16,6 +17,9 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 12) {
                 folderList
+
+                Toggle("Skip iCloud and network folders", isOn: $skipsRemoteDirectories)
+                    .controlSize(.small)
 
                 HStack {
                     // Pick a folder, then scan it.
@@ -96,7 +100,7 @@ struct ContentView: View {
 
     /// Opens a "Directory Size" window that scans the folder.
     private func scan(_ url: URL) {
-        openWindow(id: ScanView.windowID, value: ScanRequest(url: url))
+        openWindow(id: ScanView.windowID, value: ScanRequest(url: url, skipsRemoteDirectories: skipsRemoteDirectories))
     }
 
     /// Moves the picked folder to the top of the list and selects it.

@@ -7,6 +7,7 @@ nonisolated struct ScanRequest: Codable, Hashable, Sendable {
     static let currentLaunch = UUID()
 
     let url: URL
+    var skipsRemoteDirectories = true
     var launch = ScanRequest.currentLaunch
 
     var isFromCurrentLaunch: Bool { launch == Self.currentLaunch }
@@ -31,6 +32,8 @@ struct ScanView: View {
     static let windowID = "directory-size"
     /// `UserDefaults` key for whether the file list is shown; toggled from the View menu.
     static let showsFileListKey = "showsFileList"
+    /// `UserDefaults` key for whether iCloud and network folders are skipped; set in the main window.
+    static let skipsRemoteDirectoriesKey = "skipsRemoteDirectories"
 
     @State private var session: ScanSession
     @State private var isRootExpanded = true
@@ -45,8 +48,8 @@ struct ScanView: View {
         let message: String
     }
 
-    init(url: URL) {
-        _session = State(initialValue: ScanSession(url: url))
+    init(url: URL, skipsRemoteDirectories: Bool) {
+        _session = State(initialValue: ScanSession(url: url, skipsRemoteDirectories: skipsRemoteDirectories))
     }
 
     private var isConfirmingDeletion: Binding<Bool> {
@@ -257,7 +260,10 @@ private struct SizeCell: View {
 
     var body: some View {
         Group {
-            if node.isScanned {
+            if node.isSkipped {
+                Text("Skipped")
+                    .foregroundStyle(.secondary)
+            } else if node.isScanned {
                 Text(node.size, format: .byteCount(style: .file, spellsOutZero: false))
             } else {
                 Text("?")

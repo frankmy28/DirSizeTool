@@ -41,7 +41,7 @@ import SwiftUI
 
         WindowGroup("Directory Size", id: ScanView.windowID, for: ScanRequest.self) { $request in
             if let request, request.isFromCurrentLaunch {
-                ScanView(url: request.url)
+                ScanView(url: request.url, skipsRemoteDirectories: request.skipsRemoteDirectories)
             } else {
                 // Restored by macOS from an earlier launch: close it, so only the main window shows at launch.
                 StaleScanWindow()

@@ -8,6 +8,8 @@ nonisolated enum ScanEvent: Sendable {
     case directory(id: Int, parentID: Int, url: URL)
     /// Directory `id` has been read; the files directly inside it occupy `fileBytes` on disk.
     case scanned(id: Int, fileBytes: Int64)
+    /// Subdirectory `id` inside `parentID` lies in iCloud or on a network volume and is not scanned.
+    case skipped(id: Int, parentID: Int, url: URL)
 }
 
 /// Walks a directory tree in the background and reports what it finds in batches.
@@ -16,6 +18,8 @@ nonisolated struct DirectoryScanner {
     static let rootID = 0
 
     let rootURL: URL
+    /// Whether subdirectories in iCloud or on network volumes are left out.
+    let skipsRemoteDirectories: Bool
 
     /// How often collected events are sent to the UI.
     private let flushInterval: Duration = .milliseconds(200)
@@ -25,10 +29,13 @@ nonisolated struct DirectoryScanner {
         .isSymbolicLinkKey,
         .totalFileAllocatedSizeKey,
         .fileAllocatedSizeKey,
+        .isUbiquitousItemKey,
+        .volumeIsLocalKey,
     ]
 
-    init(rootURL: URL) {
+    init(rootURL: URL, skipsRemoteDirectories: Bool) {
         self.rootURL = rootURL
+        self.skipsRemoteDirectories = skipsRemoteDirectories
     }
 
     /// Scans depth-first until finished or the surrounding task is cancelled.
@@ -44,6 +51,12 @@ nonisolated struct DirectoryScanner {
         var lastFlush = clock.now
         var nextID = Self.rootID + 1
         var stack: [(id: Int, url: URL)] = [(Self.rootID, rootURL)]
+
+        // The chosen root is always scanned. If it is itself in iCloud or on a network volume,
+        // the respective check is turned off, otherwise everything below it would be skipped.
+        let rootValues = try? rootURL.resourceValues(forKeys: [.isUbiquitousItemKey, .volumeIsLocalKey])
+        let checksICloud = skipsRemoteDirectories && rootValues?.isUbiquitousItem != true
+        let checksNetwork = skipsRemoteDirectories && rootValues?.volumeIsLocal != false
 
         while let (directoryID, directoryURL) = stack.popLast() {
             if Task.isCancelled { return }
@@ -62,6 +75,11 @@ nonisolated struct DirectoryScanner {
                 if values.isDirectory == true {
                     let id = nextID
                     nextID += 1
+                    if (checksICloud && values.isUbiquitousItem == true)
+                        || (checksNetwork && values.volumeIsLocal == false) {
+                        pending.append(.skipped(id: id, parentID: directoryID, url: entry))
+                        continue
+                    }
                     pending.append(.directory(id: id, parentID: directoryID, url: entry))
                     stack.append((id, entry))
                 } else {
@@ -96,6 +114,7 @@ final class ScanSession {
     }
 
     let root: DirectoryNode
+    let skipsRemoteDirectories: Bool
     private(set) var status: Status = .scanning
 
     /// Path of the directory being scanned, updated once per batch (about every 0.2 s).
@@ -113,9 +132,10 @@ final class ScanSession {
     @ObservationIgnored private var nodesByRowID: [DirectoryNode.ID: DirectoryNode]
     @ObservationIgnored private var task: Task<Void, Never>?
 
-    init(url: URL) {
+    init(url: URL, skipsRemoteDirectories: Bool) {
         let root = DirectoryNode(url: url)
         self.root = root
+        self.skipsRemoteDirectories = skipsRemoteDirectories
         self.nodesByID = [DirectoryScanner.rootID: root]
         self.nodesByRowID = [root.id: root]
     }
@@ -149,7 +169,7 @@ final class ScanSession {
 
     func start() {
         guard task == nil else { return }
-        let scanner = DirectoryScanner(rootURL: root.url)
+        let scanner = DirectoryScanner(rootURL: root.url, skipsRemoteDirectories: skipsRemoteDirectories)
         task = Task { [weak self] in
             await scanner.scan { [weak self] batch, currentDirectory in
                 await self?.apply(batch, currentDirectory: currentDirectory)
@@ -174,9 +194,12 @@ final class ScanSession {
         var touchedParents: [ObjectIdentifier: DirectoryNode] = [:]
         for event in batch {
             switch event {
-            case let .directory(id, parentID, url):
+            case let .directory(id, parentID, url), let .skipped(id, parentID, url):
                 guard let parent = nodesByID[parentID] else { continue }
                 let node = DirectoryNode(url: url)
+                if case .skipped = event {
+                    node.isSkipped = true
+                }
                 parent.addSubdirectory(node)
                 nodesByID[id] = node
                 nodesByRowID[node.id] = node
