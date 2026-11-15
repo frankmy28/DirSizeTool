@@ -88,6 +88,7 @@ struct ContentView: View {
         .contextMenu(forSelectionType: RecentFolder.ID.self) { _ in
         } primaryAction: { ids in
             if let url = ids.first {
+                store.moveToTop(url)
                 scan(url)
             }
         }

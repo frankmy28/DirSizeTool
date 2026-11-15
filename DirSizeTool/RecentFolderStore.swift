@@ -85,6 +85,13 @@ final class RecentFolderStore {
         return url
     }
 
+    /// Moves an existing folder to the top of the list, keeping its bookmark.
+    func moveToTop(_ id: RecentFolder.ID) {
+        guard let index = folders.firstIndex(where: { $0.id == id }), index > 0 else { return }
+        folders.insert(folders.remove(at: index), at: 0)
+        save()
+    }
+
     func clear() {
         folders.removeAll()
         save()

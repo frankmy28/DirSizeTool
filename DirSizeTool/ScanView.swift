@@ -4,12 +4,15 @@ import SwiftUI
 struct ScanView: View {
     /// Scene ID used to open this window with `openWindow(id:value:)`.
     static let windowID = "directory-size"
+    /// `UserDefaults` key for whether the file list is shown; toggled from the View menu.
+    static let showsFileListKey = "showsFileList"
 
     @State private var session: ScanSession
     @State private var isRootExpanded = true
     @State private var selection: DirectoryNode.ID?
     @State private var pendingDeletion: DirectoryNode?
     @State private var actionError: ActionError?
+    @AppStorage(ScanView.showsFileListKey) private var showsFileList = true
 
     /// A failed context menu action, shown in an alert.
     private struct ActionError {
@@ -70,62 +73,22 @@ struct ScanView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            Table(of: DirectoryNode.self, selection: $selection, sortOrder: $session.sortOrder) {
-                TableColumn(
-                    Text("Directory").bold(isSorted(by: \.name)),
-                    value: \.name,
-                    comparator: .localizedStandard
-                ) { node in
-                    NameCell(node: node)
-                }
-                TableColumn(Text("Size").bold(isSorted(by: \.size)), value: \.size) { node in
-                    SizeCell(node: node)
-                }
-                .width(min: 80, ideal: 120, max: 200)
-            } rows: {
-                DisclosureTableRow(session.root, isExpanded: $isRootExpanded) {
-                    OutlineGroup(session.root.subdirectories, children: \.children)
+            #if os(macOS)
+            VSplitView {
+                directoryTable
+                    .frame(minHeight: 150)
+                if showsFileList {
+                    fileList
+                        .frame(minHeight: 100)
                 }
             }
-            .contextMenu(forSelectionType: DirectoryNode.ID.self) { ids in
-                if ids.count == 1,
-                   let id = ids.first,
-                   let node = session.node(withID: id) {
-                    #if os(macOS)
-                    Button("Show in Finder") {
-                        showInFinder(node)
-                    }
-                    #endif
-
-                    // Deleting the scanned root itself is not offered.
-                    if node !== session.root {
-                        Divider()
-                        Button("Delete directory \(node.name)", role: .destructive) {
-                            pendingDeletion = node
-                        }
-                    }
-                }
+            #else
+            directoryTable
+            if showsFileList {
+                Divider()
+                fileList
             }
-            .confirmationDialog(
-                "Delete directory \(pendingDeletion?.name ?? "")?",
-                isPresented: isConfirmingDeletion,
-                presenting: pendingDeletion
-            ) { node in
-                Button("Move to Trash", role: .destructive) {
-                    delete(node)
-                }
-            } message: { node in
-                Text("\"\(node.url.path(percentEncoded: false))\" (\(node.size.formatted(.byteCount(style: .file)))) will be moved to the Trash.")
-            }
-            .alert(
-                actionError?.title ?? "",
-                isPresented: isShowingActionError,
-                presenting: actionError
-            ) { _ in
-                Button("OK") {}
-            } message: { error in
-                Text(error.message)
-            }
+            #endif
 
             if session.status == .scanning {
                 HStack {
@@ -140,11 +103,85 @@ struct ScanView: View {
             }
         }
         .navigationTitle(title)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                // Same setting as View > Show Files; a toggle is shown highlighted while on.
+                Toggle(isOn: $showsFileList) {
+                    Label("Show Files", systemImage: "rectangle.bottomthird.inset.filled")
+                }
+                .help(showsFileList ? "Hide Files" : "Show Files")
+            }
+        }
         .task {
             session.start()
         }
         .onDisappear {
             session.abort()
+        }
+    }
+
+    /// Files of the directory selected in the tree table.
+    private var fileList: some View {
+        FileListView(directory: selection.flatMap(session.node(withID:)), session: session)
+    }
+
+    /// Tree table of all scanned directories and their sizes.
+    private var directoryTable: some View {
+        Table(of: DirectoryNode.self, selection: $selection, sortOrder: $session.sortOrder) {
+            TableColumn(
+                Text("Directory").bold(isSorted(by: \.name)),
+                value: \.name,
+                comparator: .localizedStandard
+            ) { node in
+                NameCell(node: node)
+            }
+            TableColumn(Text("Size").bold(isSorted(by: \.size)), value: \.size) { node in
+                SizeCell(node: node)
+            }
+            .width(min: 80, ideal: 120, max: 200)
+        } rows: {
+            DisclosureTableRow(session.root, isExpanded: $isRootExpanded) {
+                OutlineGroup(session.root.subdirectories, children: \.children)
+            }
+        }
+        .contextMenu(forSelectionType: DirectoryNode.ID.self) { ids in
+            if ids.count == 1,
+               let id = ids.first,
+               let node = session.node(withID: id) {
+                #if os(macOS)
+                Button("Show in Finder") {
+                    showInFinder(node)
+                }
+                #endif
+
+                // Deleting the scanned root itself is not offered.
+                if node !== session.root {
+                    Divider()
+                    Button("Delete directory \(node.name)", role: .destructive) {
+                        pendingDeletion = node
+                    }
+                }
+            }
+        }
+        .confirmationDialog(
+            "Delete directory \(pendingDeletion?.name ?? "")?",
+            isPresented: isConfirmingDeletion,
+            presenting: pendingDeletion
+        ) { node in
+            Button("Move to Trash", role: .destructive) {
+                delete(node)
+            }
+        } message: { node in
+            Text("\"\(node.url.path(percentEncoded: false))\" (\(node.size.formatted(.byteCount(style: .file)))) will be moved to the Trash.")
+        }
+        .alert(
+            actionError?.title ?? "",
+            isPresented: isShowingActionError,
+            presenting: actionError
+        ) { _ in
+            Button("OK") {}
+        } message: { error in
+            Text(error.message)
         }
     }
 

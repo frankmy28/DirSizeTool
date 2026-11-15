@@ -135,6 +135,18 @@ final class ScanSession {
         }
     }
 
+    /// Moves a file inside `directory` to the Trash and subtracts its size from the tree.
+    /// Only valid once `directory` has been scanned, otherwise the file would be counted later anyway.
+    func moveToTrash(_ file: FileEntry, in directory: DirectoryNode) throws {
+        try FileManager.default.trashItem(at: file.url, resultingItemURL: nil)
+
+        var touchedParents: [ObjectIdentifier: DirectoryNode] = [:]
+        directory.add(bytes: -file.size, touching: &touchedParents)
+        for parent in touchedParents.values {
+            parent.sortSubdirectories(using: sortOrder)
+        }
+    }
+
     func start() {
         guard task == nil else { return }
         let scanner = DirectoryScanner(rootURL: root.url)

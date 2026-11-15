@@ -1,6 +1,8 @@
 import SwiftUI
 
 @main struct MyApp: App {
+    @AppStorage(ScanView.showsFileListKey) private var showsFileList = true
+
     var body: some Scene {
         #if os(macOS)
         // A single main window (not a WindowGroup), so closing it is unambiguous.
@@ -17,6 +19,11 @@ import SwiftUI
                 Button("About Directory Size Tool") {
                     showAboutPanel()
                 }
+            }
+            // View menu: show or hide the file list below the directory tree in scan windows.
+            CommandGroup(after: .toolbar) {
+                Toggle("Show Files", isOn: $showsFileList)
+                    .keyboardShortcut("y", modifiers: [.command, .shift])
             }
         }
         #else
