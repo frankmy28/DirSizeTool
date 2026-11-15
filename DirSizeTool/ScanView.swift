@@ -149,12 +149,20 @@ struct ScanView: View {
     }
 
     private var title: String {
-        let status = switch session.status {
-        case .scanning: "Scanning…"
-        case .complete: "Complete"
-        case .incomplete: "Incomplete"
+        switch session.status {
+        case .scanning:
+            if let path = session.currentPath {
+                "Scanning \(path)…"
+            } else {
+                "Scanning…"
+            }
+        case .complete: rootPath
+        case .incomplete: "\(rootPath) (Scan aborted)"
         }
-        return "DirSizeTool – Directory Size – \(status)"
+    }
+
+    private var rootPath: String {
+        session.root.url.path(percentEncoded: false)
     }
 }
 

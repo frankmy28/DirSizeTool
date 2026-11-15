@@ -33,8 +33,9 @@ nonisolated struct DirectoryScanner {
 
     /// Scans depth-first until finished or the surrounding task is cancelled.
     /// Symbolic links are not followed; unreadable directories are skipped.
+    /// `send` receives each batch together with the directory that was scanned last.
     @concurrent
-    func scan(send: @escaping @Sendable ([ScanEvent]) async -> Void) async {
+    func scan(send: @escaping @Sendable (_ batch: [ScanEvent], _ currentDirectory: URL) async -> Void) async {
         let fileManager = FileManager.default
         let keySet = Set(resourceKeys)
         let clock = ContinuousClock()
@@ -73,15 +74,16 @@ nonisolated struct DirectoryScanner {
             pending.append(.scanned(id: directoryID, fileBytes: fileBytes))
 
             // Batch events so the main actor isn't flooded with tiny updates.
+            // This also throttles the current-directory display to the same interval.
             if !pending.isEmpty, clock.now - lastFlush >= flushInterval {
-                await send(pending)
+                await send(pending, directoryURL)
                 pending.removeAll(keepingCapacity: true)
                 lastFlush = clock.now
             }
         }
 
         if !pending.isEmpty, !Task.isCancelled {
-            await send(pending)
+            await send(pending, rootURL)
         }
     }
 }
@@ -95,6 +97,9 @@ final class ScanSession {
 
     let root: DirectoryNode
     private(set) var status: Status = .scanning
+
+    /// Path of the directory being scanned, updated once per batch (about every 0.2 s).
+    private(set) var currentPath: String?
 
     /// Current table sort order; changing it re-sorts the whole tree.
     var sortOrder: [KeyPathComparator<DirectoryNode>] = [KeyPathComparator(\.size, order: .reverse)] {
@@ -134,11 +139,12 @@ final class ScanSession {
         guard task == nil else { return }
         let scanner = DirectoryScanner(rootURL: root.url)
         task = Task { [weak self] in
-            await scanner.scan { [weak self] batch in
-                await self?.apply(batch)
+            await scanner.scan { [weak self] batch, currentDirectory in
+                await self?.apply(batch, currentDirectory: currentDirectory)
             }
             guard let self, status == .scanning else { return }
             status = .complete
+            currentPath = nil
         }
     }
 
@@ -146,10 +152,12 @@ final class ScanSession {
         guard status == .scanning else { return }
         task?.cancel()
         status = .incomplete
+        currentPath = nil
     }
 
-    private func apply(_ batch: [ScanEvent]) {
+    private func apply(_ batch: [ScanEvent], currentDirectory: URL) {
         guard status == .scanning else { return }
+        currentPath = currentDirectory.path(percentEncoded: false)
 
         var touchedParents: [ObjectIdentifier: DirectoryNode] = [:]
         for event in batch {
