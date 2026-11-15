@@ -18,13 +18,10 @@ struct ContentView: View {
                 folderList
 
                 HStack {
-                    Button("Scan") {
-                        // RecentFolder.ID is the folder's URL.
-                        if let url = selection {
-                            scan(url)
-                        }
+                    // Pick a folder, then scan it.
+                    Button("Scan...") {
+                        isPickingFolder = true
                     }
-                    .disabled(selection == nil)
 
                     Button("Clear History") {
                         store.clear()
@@ -65,7 +62,7 @@ struct ContentView: View {
         }
     }
 
-    /// Recently used folders, followed by an entry to pick another folder.
+    /// Recently used folders; new folders are picked with the "Scan..." button.
     private var folderList: some View {
         List(selection: $selection) {
             ForEach(store.folders) { folder in
@@ -84,17 +81,6 @@ struct ContentView: View {
                 .opacity(folder.isAvailable ? 1 : 0.5)
                 .selectionDisabled(!folder.isAvailable)
             }
-
-            Button {
-                isPickingFolder = true
-            } label: {
-                VStack(alignment: .leading) {
-                    Text("Scan folder...")
-                        .bold()
-                        .font(.caption)
-                }
-            }
-            .buttonStyle(.plain)
         }
         .listStyle(.plain)
         .border(.separator)
