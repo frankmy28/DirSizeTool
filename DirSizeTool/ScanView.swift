@@ -9,7 +9,13 @@ struct ScanView: View {
     @State private var isRootExpanded = true
     @State private var selection: DirectoryNode.ID?
     @State private var pendingDeletion: DirectoryNode?
-    @State private var deletionError: String?
+    @State private var actionError: ActionError?
+
+    /// A failed context menu action, shown in an alert.
+    private struct ActionError {
+        let title: String
+        let message: String
+    }
 
     init(url: URL) {
         _session = State(initialValue: ScanSession(url: url))
@@ -22,12 +28,26 @@ struct ScanView: View {
         )
     }
 
-    private var isShowingDeletionError: Binding<Bool> {
+    private var isShowingActionError: Binding<Bool> {
         Binding(
-            get: { deletionError != nil },
-            set: { if !$0 { deletionError = nil } }
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
         )
     }
+
+    #if os(macOS)
+    /// Opens a Finder window showing the directory's contents. Rooting the viewer at
+    /// the path (instead of opening it) avoids launching packages such as `.app` bundles.
+    private func showInFinder(_ node: DirectoryNode) {
+        let path = node.url.path(percentEncoded: false)
+        if !NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: path) {
+            actionError = ActionError(
+                title: "Could not show directory in Finder",
+                message: "\"\(path)\" may no longer exist."
+            )
+        }
+    }
+    #endif
 
     /// Whether the table is currently sorted by the column showing `keyPath`.
     private func isSorted(by keyPath: PartialKeyPath<DirectoryNode>) -> Bool {
@@ -41,7 +61,10 @@ struct ScanView: View {
                 selection = nil
             }
         } catch {
-            deletionError = error.localizedDescription
+            actionError = ActionError(
+                title: "Could not delete directory",
+                message: error.localizedDescription
+            )
         }
     }
 
@@ -65,13 +88,21 @@ struct ScanView: View {
                 }
             }
             .contextMenu(forSelectionType: DirectoryNode.ID.self) { ids in
-                // Offer deletion for a single directory, but not for the scanned root itself.
                 if ids.count == 1,
                    let id = ids.first,
-                   let node = session.node(withID: id),
-                   node !== session.root {
-                    Button("Delete directory \(node.name)", role: .destructive) {
-                        pendingDeletion = node
+                   let node = session.node(withID: id) {
+                    #if os(macOS)
+                    Button("Show in Finder") {
+                        showInFinder(node)
+                    }
+                    #endif
+
+                    // Deleting the scanned root itself is not offered.
+                    if node !== session.root {
+                        Divider()
+                        Button("Delete directory \(node.name)", role: .destructive) {
+                            pendingDeletion = node
+                        }
                     }
                 }
             }
@@ -87,13 +118,13 @@ struct ScanView: View {
                 Text("\"\(node.url.path(percentEncoded: false))\" (\(node.size.formatted(.byteCount(style: .file)))) will be moved to the Trash.")
             }
             .alert(
-                "Could not delete directory",
-                isPresented: isShowingDeletionError,
-                presenting: deletionError
+                actionError?.title ?? "",
+                isPresented: isShowingActionError,
+                presenting: actionError
             ) { _ in
                 Button("OK") {}
-            } message: { message in
-                Text(message)
+            } message: { error in
+                Text(error.message)
             }
 
             if session.status == .scanning {
