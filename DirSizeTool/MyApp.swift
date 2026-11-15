@@ -31,6 +31,8 @@ import SwiftUI
             }
         }
         .defaultSize(width: 900, height: 700)
+        // Scan windows are only opened via Scan; drop the automatic "New Directory Size Window" menu item.
+        .commandsRemoved()
     }
 
     #if os(macOS)

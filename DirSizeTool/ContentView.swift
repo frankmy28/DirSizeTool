@@ -91,7 +91,6 @@ struct ContentView: View {
                 VStack(alignment: .leading) {
                     Text("Scan folder...")
                         .bold()
-                    Text("…")
                         .font(.caption)
                 }
             }
