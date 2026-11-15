@@ -2,17 +2,8 @@ import SwiftUI
 import UniformTypeIdentifiers
 import Playgrounds
 
-/// A folder the user has picked before and can scan again.
-struct RecentFolder: Identifiable, Hashable {
-    let url: URL
-
-    var id: URL { url }
-    var name: String { url.lastPathComponent }
-    var path: String { url.path(percentEncoded: false) }
-}
-
 struct ContentView: View {
-    @State private var recentFolders: [RecentFolder] = []
+    @State private var store = RecentFolderStore()
     @State private var selection: RecentFolder.ID?
     @State private var isPickingFolder = false
 
@@ -30,16 +21,16 @@ struct ContentView: View {
                     Button("Scan") {
                         // RecentFolder.ID is the folder's URL.
                         if let url = selection {
-                            openWindow(id: ScanView.windowID, value: url)
+                            scan(url)
                         }
                     }
                     .disabled(selection == nil)
 
                     Button("Clear History") {
-                        recentFolders.removeAll()
+                        store.clear()
                         selection = nil
                     }
-                    .disabled(recentFolders.isEmpty)
+                    .disabled(store.folders.isEmpty)
 
                     Spacer()
 
@@ -56,7 +47,7 @@ struct ContentView: View {
             if case .success(let url) = result {
                 addRecentFolder(url)
                 // The picker's confirmation button is labeled "Scan", so start scanning right away.
-                openWindow(id: ScanView.windowID, value: url)
+                scan(url)
             }
         }
         .fileDialogConfirmationLabel("Scan")
@@ -77,18 +68,21 @@ struct ContentView: View {
     /// Recently used folders, followed by an entry to pick another folder.
     private var folderList: some View {
         List(selection: $selection) {
-            ForEach(recentFolders) { folder in
+            ForEach(store.folders) { folder in
                 Label {
                     VStack(alignment: .leading) {
                         Text(folder.name)
                             .bold()
-                        Text(folder.path)
+                        Text(folder.isAvailable ? folder.path : "Not available – \(folder.path)")
                             .font(.caption)
                     }
                 } icon: {
                     Image(systemName: "externaldrive.fill")
                         .foregroundStyle(.orange)
                 }
+                // Folders that couldn't be found at launch can't be selected or scanned.
+                .opacity(folder.isAvailable ? 1 : 0.5)
+                .selectionDisabled(!folder.isAvailable)
             }
 
             Button {
@@ -105,17 +99,23 @@ struct ContentView: View {
         }
         .listStyle(.plain)
         .border(.separator)
+        // No context menu; the primary action handles double-clicking a folder, same as Scan.
+        .contextMenu(forSelectionType: RecentFolder.ID.self) { _ in
+        } primaryAction: { ids in
+            if let url = ids.first {
+                scan(url)
+            }
+        }
+    }
+
+    /// Opens a "Directory Size" window that scans the folder.
+    private func scan(_ url: URL) {
+        openWindow(id: ScanView.windowID, value: url)
     }
 
     /// Moves the picked folder to the top of the list and selects it.
     private func addRecentFolder(_ url: URL) {
-        // Keep sandbox access open for the app's lifetime so the scan window can read the folder.
-        _ = url.startAccessingSecurityScopedResource()
-
-        let folder = RecentFolder(url: url)
-        recentFolders.removeAll { $0 == folder }
-        recentFolders.insert(folder, at: 0)
-        selection = folder.id
+        selection = store.add(url)
     }
 }
 
