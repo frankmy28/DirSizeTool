@@ -3,6 +3,13 @@ import SwiftUI
 @main struct MyApp: App {
     @AppStorage(ScanView.showsFileListKey) private var showsFileList = true
 
+    init() {
+        #if os(macOS)
+        // No window tabs: removes "Show Tab Bar" and "Show All Tabs" from the View menu.
+        NSWindow.allowsAutomaticWindowTabbing = false
+        #endif
+    }
+
     var body: some Scene {
         #if os(macOS)
         // A single main window (not a WindowGroup), so closing it is unambiguous.
@@ -32,14 +39,19 @@ import SwiftUI
         }
         #endif
 
-        WindowGroup("Directory Size", id: ScanView.windowID, for: URL.self) { $url in
-            if let url {
-                ScanView(url: url)
+        WindowGroup("Directory Size", id: ScanView.windowID, for: ScanRequest.self) { $request in
+            if let request, request.isFromCurrentLaunch {
+                ScanView(url: request.url)
+            } else {
+                // Restored by macOS from an earlier launch: close it, so only the main window shows at launch.
+                StaleScanWindow()
             }
         }
         .defaultSize(width: 900, height: 700)
         // Scan windows are only opened via Scan; drop the automatic "New Directory Size Window" menu item.
         .commandsRemoved()
+        // Don't reopen scan windows that were open when the app quit; launch with only the main window.
+        .restorationBehavior(.disabled)
     }
 
     #if os(macOS)

@@ -1,5 +1,30 @@
 import SwiftUI
 
+/// The value a scan window is opened with. It carries an ID of the current app launch, so
+/// windows that macOS restores from an earlier launch can be recognized and closed.
+nonisolated struct ScanRequest: Codable, Hashable, Sendable {
+    /// Unique per app launch.
+    static let currentLaunch = UUID()
+
+    let url: URL
+    var launch = ScanRequest.currentLaunch
+
+    var isFromCurrentLaunch: Bool { launch == Self.currentLaunch }
+}
+
+/// Shown in place of a scan window restored from an earlier launch; closes it right away.
+struct StaleScanWindow: View {
+    @Environment(\.dismissWindow) private var dismissWindow
+
+    var body: some View {
+        Color.clear
+            .frame(width: 1, height: 1)
+            .onAppear {
+                dismissWindow()
+            }
+    }
+}
+
 /// Content of the "Directory Size" window: a live tree table of directory sizes.
 struct ScanView: View {
     /// Scene ID used to open this window with `openWindow(id:value:)`.

@@ -96,7 +96,7 @@ struct ContentView: View {
 
     /// Opens a "Directory Size" window that scans the folder.
     private func scan(_ url: URL) {
-        openWindow(id: ScanView.windowID, value: url)
+        openWindow(id: ScanView.windowID, value: ScanRequest(url: url))
     }
 
     /// Moves the picked folder to the top of the list and selects it.
