@@ -196,7 +196,7 @@ private struct SizeCell: View {
     var body: some View {
         Group {
             if node.isScanned {
-                Text(node.size, format: .byteCount(style: .file))
+                Text(node.size, format: .byteCount(style: .file, spellsOutZero: false))
             } else {
                 Text("?")
                     .foregroundStyle(.secondary)
