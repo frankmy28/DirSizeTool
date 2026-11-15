@@ -43,7 +43,9 @@ struct ScanView: View {
     var body: some View {
         VStack(spacing: 0) {
             Table(of: DirectoryNode.self, selection: $selection) {
-                TableColumn("Directory", value: \.name)
+                TableColumn("Directory") { node in
+                    NameCell(node: node)
+                }
                 TableColumn("Size") { node in
                     SizeCell(node: node)
                 }
@@ -113,6 +115,27 @@ struct ScanView: View {
         case .incomplete: "Incomplete"
         }
         return "DirSizeTool – Directory Size – \(status)"
+    }
+}
+
+/// Directory name with the same icon Finder shows for it (including custom
+/// folder icons and package icons such as apps).
+private struct NameCell: View {
+    let node: DirectoryNode
+
+    var body: some View {
+        Label {
+            Text(node.name)
+        } icon: {
+            #if os(macOS)
+            Image(nsImage: NSWorkspace.shared.icon(forFile: node.url.path(percentEncoded: false)))
+                .resizable()
+                .frame(width: 16, height: 16)
+            #else
+            Image(systemName: "folder.fill")
+                .foregroundStyle(.blue)
+            #endif
+        }
     }
 }
 
