@@ -65,11 +65,8 @@ struct ContentView: View {
     /// App icon, name and short description on the left side.
     private var appInfo: some View {
         VStack(spacing: 12) {
-            Image(systemName: "square.stack.3d.up.fill")
-                .resizable()
-                .scaledToFit()
+            AppIconView()
                 .frame(width: 140, height: 140)
-                .foregroundStyle(.blue.gradient)
 
             Text("Helps you to free up space on your drives")
                 .font(.callout)
@@ -119,6 +116,16 @@ struct ContentView: View {
         recentFolders.removeAll { $0 == folder }
         recentFolders.insert(folder, at: 0)
         selection = folder.id
+    }
+}
+
+/// The app's icon as shown in the main window; also rendered for the About panel.
+struct AppIconView: View {
+    var body: some View {
+        Image(systemName: "square.stack.3d.up.fill")
+            .resizable()
+            .scaledToFit()
+            .foregroundStyle(.blue.gradient)
     }
 }
 

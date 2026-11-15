@@ -16,7 +16,7 @@
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/DirSizeTool.app", "id": "000000000000000000000120", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Directory Size Tool.app", "id": "000000000000000000000120", "type": "wrapper.application", "index": false },
       ],
     },
   ],
@@ -24,7 +24,7 @@
     {
       "name": "DirSizeTool",
       "id": "000000000000000100000000",
-      "product": "Products/DirSizeTool.app",
+      "product": "Products/Directory Size Tool.app",
       "product-type": "application",
       "build-phases": [
         "compile-sources",
@@ -32,6 +32,7 @@
         "resources",
       ],
       "build-settings": {
+        "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",
         "DEVELOPMENT_TEAM": "Y2NF3B2C3V",
@@ -39,6 +40,7 @@
         "ENABLE_PREVIEWS": "YES",
         "ENABLE_USER_SELECTED_FILES": "readwrite",
         "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_KEY_NSHumanReadableCopyright": "(C) 2026 Frank Mathy",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]": "YES",
         "INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]": "YES",
         "INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]": "YES",
@@ -53,7 +55,7 @@
         "LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]": "@executable_path/../Frameworks",
         "MARKETING_VERSION": "1.0",
         "PRODUCT_BUNDLE_IDENTIFIER": "com.frankmathypersonalteam.dirsizetool",
-        "PRODUCT_NAME": "$(TARGET_NAME)",
+        "PRODUCT_NAME": "Directory Size Tool",
         "REGISTER_APP_GROUPS": "YES",
         "SDKROOT": "auto",
         "STRING_CATALOG_GENERATE_SYMBOLS": "YES",
