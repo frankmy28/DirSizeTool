@@ -8,7 +8,8 @@ nonisolated enum ScanEvent: Sendable {
     case directory(id: Int, parentID: Int, url: URL)
     /// Directory `id` has been read; the files directly inside it occupy `fileBytes` on disk.
     case scanned(id: Int, fileBytes: Int64)
-    /// Subdirectory `id` inside `parentID` lies in iCloud or on a network volume and is not scanned.
+    /// Subdirectory `id` inside `parentID` is not scanned: it is the mount point of another volume,
+    /// or it lies in iCloud or on a network volume.
     case skipped(id: Int, parentID: Int, url: URL)
 }
 
@@ -21,6 +22,10 @@ nonisolated struct DirectoryScanner {
     /// Whether subdirectories in iCloud or on network volumes are left out.
     let skipsRemoteDirectories: Bool
 
+    /// Special macOS paths at `/` that are no real directories. Listing them can hang or
+    /// would count the file system again, so they are left out of the scan entirely.
+    private static let virtualRootEntries: Set<String> = [".nofollow", ".resolve", ".vol"]
+
     /// How often collected events are sent to the UI.
     private let flushInterval: Duration = .milliseconds(200)
 
@@ -31,6 +36,7 @@ nonisolated struct DirectoryScanner {
         .fileAllocatedSizeKey,
         .isUbiquitousItemKey,
         .volumeIsLocalKey,
+        .isVolumeKey,
     ]
 
     init(rootURL: URL, skipsRemoteDirectories: Bool) {
@@ -40,6 +46,8 @@ nonisolated struct DirectoryScanner {
 
     /// Scans depth-first until finished or the surrounding task is cancelled.
     /// Symbolic links are not followed; unreadable directories are skipped.
+    /// Mount points of other volumes (e.g. under /Volumes) are never entered. Firmlinked
+    /// directories such as /Users are not volume roots, so they are still scanned from /.
     /// `send` receives each batch together with the directory that was scanned last.
     @concurrent
     func scan(send: @escaping @Sendable (_ batch: [ScanEvent], _ currentDirectory: URL) async -> Void) async {
@@ -66,6 +74,7 @@ nonisolated struct DirectoryScanner {
                 includingPropertiesForKeys: resourceKeys
             )) ?? []
 
+            let isFileSystemRoot = directoryURL.path(percentEncoded: false) == "/"
             var fileBytes: Int64 = 0
             for entry in entries {
                 if Task.isCancelled { return }
@@ -73,9 +82,13 @@ nonisolated struct DirectoryScanner {
                       values.isSymbolicLink != true else { continue }
 
                 if values.isDirectory == true {
+                    if isFileSystemRoot, Self.virtualRootEntries.contains(entry.lastPathComponent) {
+                        continue
+                    }
                     let id = nextID
                     nextID += 1
-                    if (checksICloud && values.isUbiquitousItem == true)
+                    if values.isVolume == true
+                        || (checksICloud && values.isUbiquitousItem == true)
                         || (checksNetwork && values.volumeIsLocal == false) {
                         pending.append(.skipped(id: id, parentID: directoryID, url: entry))
                         continue

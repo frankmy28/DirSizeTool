@@ -13,7 +13,8 @@ final class DirectoryNode: Identifiable {
     /// Whether this directory's own contents have been read. Until then its size is unknown.
     var isScanned = false
 
-    /// Whether this directory lies in iCloud or on a network volume and was left out of the scan.
+    /// Whether this directory was left out of the scan because it is another volume's mount point
+    /// or lies in iCloud or on a network volume.
     var isSkipped = false
 
     /// Subdirectories, ordered largest first.
